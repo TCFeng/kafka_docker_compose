@@ -1,0 +1,115 @@
+version: "3"
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    volumes:
+      - "./zk/data:/var/lib/zookeeper/data"
+      - "./zk/logs:/var/lib/zookeeper/log"
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-server:5.4.0
+    hostname: broker
+    container_name: broker
+    volumes:
+      - "./kafka-data:/var/lib/kafka/data"
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.150.38:9092
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_CONFLUENT_LICENSE_TOPIC_REPLICATION_FACTOR: 1
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: 192.168.150.38:9092
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:2181
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: "true"
+      CONFLUENT_SUPPORT_CUSTOMER_ID: "anonymous"
+
+  kafka-tools:
+    image: confluentinc/cp-kafka:5.4.0
+    hostname: kafka-tools
+    container_name: kafka-tools
+    command: ["tail", "-f", "/dev/null"]
+    network_mode: "host"
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:5.4.0
+    #image: repo.devpack.cc/r360-data-center/schema-registry:latest
+    hostname: schema-registry
+    container_name: schema-registry
+    volumes:
+      - "./schema-registry.properties.template:/etc/confluent/docker/schema-registry.properties.template"
+    depends_on:
+      - zookeeper
+      - broker
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: "zookeeper:2181"
+
+  schema-registry-ui:
+    image: landoop/schema-registry-ui
+    hostname: schema-registry-ui
+    container_name: schema-registry-ui
+    depends_on:
+      - schema-registry
+    ports:
+      - "8000:8000"
+    environment:
+      SCHEMAREGISTRY_URL: "http://192.168.150.38:8081"
+
+  kafka-rest:
+    image: confluentinc/cp-kafka-rest:5.4.0
+    #image: repo.devpack.cc/r360-data-center/kafka-rest:latest
+    hostname: kafka-rest
+    ports:
+      - "8082:8082"
+    volumes:
+       - "./kafka-rest.properties.template:/etc/confluent/docker/kafka-rest.properties.template"
+    depends_on:
+      - broker
+      - zookeeper
+      - schema-registry
+    environment:
+      KAFKA_REST_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_REST_SCHEMA_REGISTRY_URL: schema-registry:8081
+      KAFKA_REST_HOST_NAME: kafka-rest
+      KAFKA_REST_LISTENERS: http://0.0.0.0:8082
+
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui
+    hostname: kafka-topics-ui
+    container_name: kafka-topics-ui
+    depends_on:
+      - broker
+    ports:
+      - "8001:8000"
+    environment:
+      KAFKA_REST_PROXY_URL: "http://192.168.150.38:8082"
+      PROXY: "true"
+
+  kafka-manager:
+    image: dockerkafka/kafka-manager
+    depends_on:
+      - zookeeper
+      - broker
+    environment:
+     ZK_HOSTS: zookeeper
+    ports:
+      - "9000:9000"

@@ -1,0 +1,7 @@
+{% set kr_props = env_to_props('KAFKA_REST_', '') -%}
+{% for name, value in kr_props.iteritems() -%}
+{{name}}={{value}}
+{% endfor -%}
+access.control.allow.origin=*
+access.control.allow.methods=GET,POST,PUT,DELETE,OPTIONS,HEAD
+consumer.request.timeout.ms=30000

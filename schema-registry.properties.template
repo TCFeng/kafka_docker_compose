@@ -1,0 +1,7 @@
+{% set sr_props = env_to_props('SCHEMA_REGISTRY_', '') -%}
+{% for name, value in sr_props.iteritems() -%}
+{{name}}={{value}}
+{% endfor -%}
+avro.compatibility.level=full
+access.control.allow.methods=GET,POST,PUT,OPTIONS
+access.control.allow.origin=*
